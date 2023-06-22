@@ -6,6 +6,7 @@ const padLeft = require('pad-left');
 const chalk = require('chalk');
 const yaml = require('js-yaml');
 
+
 const nl = process.platform === 'win32' ? '\r\n' : '\n';
 
 const emojiLog = {
@@ -78,6 +79,58 @@ function MiamiVice() {
         if (obj.level === 60) obj.level = 'fatal'
     }
 
+
+    function identifyType(inputString) {
+        // Check for number
+        if (!isNaN(inputString.trim())) {
+          return 'number';
+        }
+      
+        // Check for boolean
+        if (inputString.trim().toLowerCase() === 'true' || inputString.trim().toLowerCase() === 'false') {
+          return 'boolean';
+        }
+      
+        // Check for null
+        if (inputString.trim().toLowerCase() === 'null') {
+          return 'null';
+        }
+      
+        // Check for date
+        if (!isNaN(Date.parse(inputString))) {
+          return 'date';
+        }
+      
+        // Default to string
+        return 'string';
+      }
+      
+
+    function formatOutputObject(line){
+        //console.log('--',line)
+        const splitValues = line.split(":")
+        const isKeyValue = splitValues.length>=2
+        const key = splitValues[0]
+        const value =  isKeyValue && splitValues[1]
+        const valueType = isKeyValue ? identifyType(value) : identifyType(key)
+        let formattedValue = isKeyValue ? value : key
+
+        switch(valueType){
+            case 'string':
+                formattedValue = chalk.green(formattedValue)
+            case 'number':
+                formattedValue = chalk.blue(formattedValue)
+            case 'boolean': 
+                formattedValue = chalk.magenta(formattedValue)  
+            case 'null': 
+                formattedValue = chalk.red(formattedValue)  
+            default:
+                formattedValue = chalk.grey(formattedValue)                 
+        }
+
+        return isKeyValue ? `${chalk.gray(key)}: ${formattedValue} ` : `${formattedValue}` ;
+    }
+
     function output(obj) {
         const output = [];
 
@@ -136,7 +189,7 @@ function MiamiVice() {
                     .split(anynl)
                     .filter(noEmpty)
                     .map(indent)
-                    .map((line) => chalk.gray(line));
+                    .map((line) => formatOutputObject(line));
             }
         }
 
@@ -179,11 +232,57 @@ function MiamiVice() {
         
         const errLines = yaml.safeDump(err, { skipInvalid: true })
             .split(anynl).map(errLine => '   ' + errLine);
-        errLines.unshift(`${formatMark(emojiMark.error)} ${errName}:`);
-
+        errLines.unshift(chalk.bgRed.bold.black(`${formatMark(emojiMark.error)} ${errName}:`));
+        
         return errLines
             .filter(errLine => errLine.trim())
-            .map(indent);
+            .map(indent)
+            .map(line => formatOutputObject(line))
+    }
+
+    function extractPathAndPosition(inputString) {
+        const sanitizedPath = inputString.replace(/^\(|\)$/g, '');
+        const regex = /^(.*):(\d+):(\d+)$/;
+        const matches = regex.exec(sanitizedPath);
+        
+        if (matches) {
+          const path = matches[1];
+          const line = parseInt(matches[2], 10);
+          const column = parseInt(matches[3], 10);
+          
+          return { path, line, column };
+        }
+        
+        return inputString;
+      }
+      
+
+    function prettyTrace(trace){
+        let finalTrace = ''
+        if(trace.includes("at")){
+            const splitTrace = trace.trimStart().split(" ")
+            if(splitTrace[0]==="at"){
+                trace = "    at"
+            }
+            
+            //If second content is path
+            if(splitTrace[1].includes("/")){
+                const {path,line,column} = extractPathAndPosition(splitTrace[1])
+                trace = `${trace} ${chalk.underline.blue(path)}:${chalk.green(line)}:${chalk.magenta(column)}`
+            }
+            else {
+                trace = `${trace} ${chalk.bgGreen(splitTrace[1])}`
+            }
+
+            if(splitTrace[2] && splitTrace[2].includes("/") && (/^\((.*?)\)$/).test(splitTrace[2])){
+                const {path,line,column} = extractPathAndPosition(splitTrace[2])
+                trace = `${trace} (${chalk.underline.blue(path)}:${chalk.green(line)}:${chalk.magenta(column)})`
+            }            
+        }
+        else{
+            return trace
+        }
+        return trace
     }
 
     function formatTrace(trace, err) {
@@ -201,10 +300,13 @@ function MiamiVice() {
         if (errNameMatch) {
             trace.shift();
         }
-
-        res.push(`${formatMark(emojiMark.stack)} Stack trace:`);
-        res.push(...trace);
-        return res.map(indent);
+        
+        res.push(chalk.bgYellow.bold.black(`${formatMark(emojiMark.stack)} Stack trace:`));
+        trace.forEach(eachTrace =>{
+            res.push(prettyTrace(eachTrace))
+        })
+        //res.push(...trace);
+        return res.map(indent)
     }
 
     function formatDate(time) {
