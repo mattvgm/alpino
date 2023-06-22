@@ -9,13 +9,22 @@ const yaml = require('js-yaml');
 
 const nl = process.platform === 'win32' ? '\r\n' : '\n';
 
+// const emojiLog = {
+//     fatal: '💀',
+//     error: '🚨',
+//     warn: '⚠️',
+//     info: '✨',
+//     debug: '🐛',
+//     trace: '🔍'
+// };
+
 const emojiLog = {
-    fatal: '💀',
-    error: '🚨',
-    warn: '⚠️',
-    info: '✨',
-    debug: '🐛',
-    trace: '🔍'
+    fatal: chalk.red("FATAL"),
+    error: chalk.red("ERROR"),
+    warn: chalk.yellow("WARN"),
+    info: chalk.blue("INFO"),
+    debug: chalk.magenta("DEBUG"),
+    trace: chalk.magenta("TRACE")
 };
 
 const emojiMark = {
@@ -57,7 +66,6 @@ function MiamiVice() {
 
         if (!record.level) return unhandled();
         if (typeof record.level === 'number') convertLogNumber(record);
-
         return output(record) + nl
     }
 
@@ -78,7 +86,6 @@ function MiamiVice() {
         if (obj.level === 50) obj.level = 'error';
         if (obj.level === 60) obj.level = 'fatal'
     }
-
 
     function identifyType(inputString) {
         // Check for number
@@ -105,9 +112,7 @@ function MiamiVice() {
         return 'string';
       }
       
-
     function formatOutputObject(line){
-        //console.log('--',line)
         const splitValues = line.split(":")
         const isKeyValue = splitValues.length>=2
         const key = splitValues[0]
@@ -122,16 +127,19 @@ function MiamiVice() {
                 formattedValue = chalk.blue(formattedValue)
             case 'boolean': 
                 formattedValue = chalk.magenta(formattedValue)  
+            case 'date': 
+                formattedValue = chalk.yellow(formattedValue)  
             case 'null': 
                 formattedValue = chalk.red(formattedValue)  
             default:
-                formattedValue = chalk.grey(formattedValue)                 
+                formattedValue = chalk.white(formattedValue)                 
         }
 
-        return isKeyValue ? `${chalk.gray(key)}: ${formattedValue} ` : `${formattedValue}` ;
+        return isKeyValue ? `${chalk.white(key)}: ${formattedValue} ` : `${formattedValue}` ;
     }
 
     function output(obj) {
+
         const output = [];
 
         if (!obj.level) obj.level = 'userlvl';
@@ -139,17 +147,19 @@ function MiamiVice() {
         if (!obj.ns) obj.ns = '';
 
         const level = extract(obj, 'level');
-        output.push(formatDate(extract(obj, 'time')));
+        output.push(formatDate(extract(obj, 'time'),true));
         output.push(formatLevel(level));
         output.push(formatNs(extract(obj, 'ns')));
         output.push(formatName(extract(obj, 'name')));
+        const logContext = extract(obj, 'context')
+        logContext && output.push(`${chalk.cyan(logContext)}`);
 
         const reqId = extract(obj, 'reqId');
         if (reqId) {
             output.push(chalk.blueBright(`[${reqId}]`));
         }
 
-        const msg = extract(obj, 'message', 'msg') || '_';
+        const msg = extract(obj, 'message', 'msg') || '';
         output.push(formatMessage(msg, level));
 
         /*const pid = */extract(obj, 'pid');
@@ -179,18 +189,28 @@ function MiamiVice() {
 
         let detailLines = [];
 
+        //TODO : Add a flag to format even without info
+        // if (level !== 'info') {
+        //     const details = yaml.safeDump(obj, {skipInvalid: true, flowLevel: 0}).trimEnd()
+        //     if (details.length < 160) {
+        //         output.push((details));
+        //     }
+        //     else {
+        //         detailLines = yaml.safeDump(obj, {skipInvalid: true})
+        //             .split(anynl)
+        //             .filter(noEmpty)
+        //             .map(indent)
+        //             .map((line) => formatOutputObject(line));
+        //     }
+        // }
         if (level !== 'info') {
-            const details = yaml.safeDump(obj, {skipInvalid: true, flowLevel: 0}).trimEnd();
-            if (details.length < 160) {
-                output.push(chalk.gray(details));
-            }
-            else {
                 detailLines = yaml.safeDump(obj, {skipInvalid: true})
                     .split(anynl)
                     .filter(noEmpty)
+                    .filter(val=> val!=="{}")
                     .map(indent)
                     .map((line) => formatOutputObject(line));
-            }
+            
         }
 
         let lines = [output.filter(noEmpty).join(' '), ...detailLines];
@@ -232,7 +252,7 @@ function MiamiVice() {
         
         const errLines = yaml.safeDump(err, { skipInvalid: true })
             .split(anynl).map(errLine => '   ' + errLine);
-        errLines.unshift(chalk.bgRed.bold.black(`${formatMark(emojiMark.error)} ${errName}:`));
+        errLines.unshift(chalk.bgRed.black(`${formatMark(emojiMark.error)} ${errName}:`));
         
         return errLines
             .filter(errLine => errLine.trim())
@@ -271,7 +291,7 @@ function MiamiVice() {
                 trace = `${trace} ${chalk.underline.blue(path)}:${chalk.green(line)}:${chalk.magenta(column)}`
             }
             else {
-                trace = `${trace} ${chalk.bgGreen(splitTrace[1])}`
+                trace = `${trace} ${chalk.green(splitTrace[1])}`
             }
 
             if(splitTrace[2] && splitTrace[2].includes("/") && (/^\((.*?)\)$/).test(splitTrace[2])){
@@ -301,21 +321,24 @@ function MiamiVice() {
             trace.shift();
         }
         
-        res.push(chalk.bgYellow.bold.black(`${formatMark(emojiMark.stack)} Stack trace:`));
+        res.push(chalk.bgYellow.black(`${formatMark(emojiMark.stack)} Stack trace:`));
         trace.forEach(eachTrace =>{
             res.push(prettyTrace(eachTrace))
         })
-        //res.push(...trace);
         return res.map(indent)
     }
 
-    function formatDate(time) {
+    function formatDate(time,showDate=false) {
         const date = new Date(time);
         const hours = padLeft(date.getHours().toString(), 2, '0');
         const minutes = padLeft(date.getMinutes().toString(), 2, '0');
         const seconds = padLeft(date.getSeconds().toString(), 2, '0');
+        const day = padLeft(date.getDay().toString(), 2, '0');
+        const month = padLeft(date.getMonth().toString(), 2, '0');
+        const year = padLeft(date.getFullYear().toString(), 2, '0');
+        const prettyDayMonthYear = `${day}/${month}/${year}`
         const prettyDate = hours + ':' + minutes + ':' + seconds;
-        return chalk.gray(prettyDate)
+        return chalk.gray(showDate ? `${prettyDayMonthYear} ${prettyDate}`  : prettyDate)
     }
 
     function formatLevel(level) {

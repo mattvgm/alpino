@@ -15,7 +15,7 @@
     "miami-vice": "./bin.js"
   },
   "dependencies": {
-    "chalk": "^2.4.2",
+    "chalk": "^4.0.0",
     "fast-json-parse": "^1.0.3",
     "has-unicode": "^2.0.1",
     "js-yaml": "^3.13.1",
