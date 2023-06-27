@@ -9,6 +9,9 @@
     "ndjson",
     "pretty-printer"
   ],
+  "scripts": {
+    "build":"rollup --bundleConfigAsCjs -c rollup.config.js"
+  },
   "main": "index.js",
   "bin": {
     "alpino": "./bin.js"
@@ -25,5 +28,9 @@
     "pump": "^3.0.0",
     "sonic-boom": "^3.3.0",
     "split2": "^3.1.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.2",
+    "@rollup/plugin-node-resolve": "^15.1.0"
   }
 }

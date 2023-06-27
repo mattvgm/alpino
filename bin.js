@@ -1,5 +1,5 @@
 #! /usr/bin/env node
-const miamiVice = require('./')();
+const Alpino = require('./pretty')();
 const split = require('split2');
 
 function inputFile() {
@@ -14,5 +14,5 @@ const input =  inputFile();
 const output = process.stdout;
 
 input
-    .pipe(split(miamiVice))
+    .pipe(split(Alpino))
     .pipe(output);
