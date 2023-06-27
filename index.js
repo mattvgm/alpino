@@ -40,9 +40,9 @@ function isWideEmoji(character) {
     return character !== '⚠️'
 }
 
-module.exports = MiamiVice;
+module.exports = Alpino;
 
-function MiamiVice() {
+function Alpino() {
     return parse;
 
     function parse(lineOrRecord) {
