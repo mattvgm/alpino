@@ -6,8 +6,35 @@ const padLeft = require('pad-left');
 const chalk = require('chalk');
 const yaml = require('js-yaml');
 
-
 const nl = process.platform === 'win32' ? '\r\n' : '\n';
+
+
+const options ={
+    IndentMark : chalk.gray('|'),
+    LevelFormat : {
+        fatal: chalk.red("FATAL"),
+        error: chalk.red("ERROR"),
+        warn: chalk.yellow("WARN"),
+        info: chalk.blue("INFO"),
+        debug: chalk.magenta("DEBUG"),
+        trace: chalk.magenta("TRACE")
+    },
+    ExceptionsMarks : {
+        error: '🧨',
+        stack: '💥',
+    },
+    Colors :{
+        key : (value) => chalk.white.bold(value),
+        types :{
+            string : (value) => chalk.green(value),
+            number : (value) => chalk.blue(value),
+            boolean : (value) => chalk.magenta(value),
+            date : (value) => chalk.yellow(value),
+            null : (value) => chalk.red(value),
+            default : (value) => chalk.white(value)
+         }
+    }
+}
 
 // const emojiLog = {
 //     fatal: '💀',
@@ -189,21 +216,8 @@ function Alpino() {
 
         let detailLines = [];
 
-        //TODO : Add a flag to format even without info
-        // if (level !== 'info') {
-        //     const details = yaml.safeDump(obj, {skipInvalid: true, flowLevel: 0}).trimEnd()
-        //     if (details.length < 160) {
-        //         output.push((details));
-        //     }
-        //     else {
-        //         detailLines = yaml.safeDump(obj, {skipInvalid: true})
-        //             .split(anynl)
-        //             .filter(noEmpty)
-        //             .map(indent)
-        //             .map((line) => formatOutputObject(line));
-        //     }
-        // }
-        if (level !== 'info') {
+
+        //if (level !== 'info') {
                 detailLines = yaml.safeDump(obj, {skipInvalid: true})
                     .split(anynl)
                     .filter(noEmpty)
@@ -211,7 +225,7 @@ function Alpino() {
                     .map(indent)
                     .map((line) => formatOutputObject(line));
             
-        }
+        //}
 
         let lines = [output.filter(noEmpty).join(' '), ...detailLines];
 
@@ -256,7 +270,7 @@ function Alpino() {
         
         return errLines
             .filter(errLine => errLine.trim())
-            //.map(indent)
+            .map(indent)
             .map(line => formatOutputObject(line))
     }
 
